@@ -1,0 +1,74 @@
+Report 6
+
+select year, city_size, sum(rev_single_pid) as rev_by_yearlyCitySize from (
+select Year(sell_date) as year,pid ,store_number,sell_quantity * Finalprice as rev_single_PID,city_name, state_name, 
+	(case when population < 3700000 then 'Small'
+		  when population >=3700000 and population<6700000 then 'Medium'
+		  when population >=6700000 and population<9000000 then 'Large'
+		  when population >=9000000 then 'Extra Large'end) as city_size 
+	from(
+select t4.PID, t4.Store_Number, t4.sell_date, t4.Sell_Quantity, if(isnull(t4.discountprice) or t4.discountprice = "", p.price, t4.discountprice) as Finalprice, t4.City_Name, t4.State_Name,t4.Population from (
+select t3.PID, t3.Store_Number, t3.sell_date, t3.Sell_Quantity, t3.discountprice, t3.City_Name, t3.State_Name,c.Population from (
+select t2.PID, t2.Store_Number, t2.sell_date, t2.Sell_Quantity, t2.discountprice, s2.City_Name, s2.State_Name from (
+Select t1.PID, t1.Store_Number, t1.sell_date, t1.Sell_Quantity, t1.discountprice from (
+Select s.PID, s.Store_Number, s.sell_date, s.Sell_Quantity,d.discountprice from Discount d
+Right join Sales s 
+on s.PID = d.pid and s.sell_date  = d.discount_date )t1
+)t2
+	left join Store s2 
+	on t2.store_number = s2.Store_Number )t3
+	left join City c 
+	on c.City_Name = t3.city_name and c.State_Name = t3.state_name) t4
+	left join product p 
+	on t4.PID = p.PID 
+	)t5)t6
+	group by year, city_size 
+	order by YEAR(sell_date)asc, city_size desc
+    
+    
+    Report7
+SELECT t6.YM
+, SUM(temp_rev) AS rev_by_monthly_limit
+, IFNULL(limit_time, 'No childcare') AS limit_time
+FROM
+(SELECT DATE_FORMAT(sell_date,'%Y-%m')AS YM
+,t5.sell_quantity * t5.Finalprice AS temp_rev
+, t5.limit_time
+FROM
+(SELECT t4.PID
+, t4.store_number
+, t4.sell_date
+, t4.sell_quantity
+, if(isnull(t4.discountprice) or t4.discountprice = "", t4.price, t4.discountprice) as Finalprice
+, t4.price
+, s2.limit_time
+FROM
+(SELECT t3.PID
+, t3.store_number
+, t3.sell_date
+, t3.sell_quantity
+, t3.discountprice, p.price
+FROM
+(SELECT * FROM
+(SELECT t1.PID
+, t1.Store_Number
+, t1.sell_date
+, t1.Sell_Quantity
+, t1.discountprice FROM
+(SELECT s.PID
+, s.Store_Number
+, s.sell_date
+, s.Sell_Quantity
+,d.discountprice FROM discount d	
+RIGHT JOIN sales s
+ON s.PID = d.pid AND s.sell_date = d.discount_date ) t1
+)t2
+WHERE sell_date >= (select max(sell_date) - INTERVAL 12 MONTH from sales)
+)t3
+LEFT JOIN product p
+ON p.PID = t3.PID) t4
+LEFT JOIN store s2
+ON t4.store_number = s2.Store_Number )t5)t6
+GROUP BY YM, limit_time
+ORDER BY YM
+	
